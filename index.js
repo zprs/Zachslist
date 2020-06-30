@@ -4,7 +4,8 @@ const nodemailer = require('nodemailer');
 
 var express = require('express');
 var app = express();
-var server = app.listen(8080, "0.0.0.0");
+const port = process.env.PORT || 3000;
+var server = app.listen(port, "0.0.0.0");
 
 app.use(express.static('public'));
 var io = require('socket.io')(server);
