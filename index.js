@@ -10,6 +10,8 @@ var server = app.listen(port, "0.0.0.0");
 app.use(express.static('public'));
 var io = require('socket.io')(server);
 
+console.log(`App started. Running on port ${ port }`);
+
 io.sockets.on('connection', (socket) => {
     console.log('a user connected');
 
