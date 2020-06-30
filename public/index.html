@@ -1,0 +1,168 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Zachlist</title>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.1/socket.io.js"></script>
+        <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+        <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;700&display=swap" rel="stylesheet">
+        <link rel="stylesheet" type="text/css" href="stylesheet.css">
+    </head>
+    <body>
+
+        <div class="searchFeilds" id="mainSearch">
+            
+            <div id="searchTerms">
+                <div class="leftDiv">
+                    <label class="searchTermLabel" for="pstInput">Positive Search Terms</label>
+                    <input class="termInput" type="text" id="pstInput">
+    
+                    <ul id="pst" class="termList"></ul>
+                </div>
+    
+                <div class="rightDiv">
+                    <label class="searchTermLabel" for="nstInput">Negitive Search Terms</label>
+                    <input class="termInput" type="text" id="nstInput">
+    
+                    <ul id="nst" class="termList"></ul>
+                </div>
+            </div>
+
+            <div class="specialSearchTermsDiv">
+                <label id="sstLabel" class="searchTermLabel" for="sstInput">Special Search Terms 
+                    <div class="tooltip">?
+                        <div class="tooltiptext">Any items that includes a "special" search term in their description will appear at the top of the search results. If an item does not include one of these terms, it will still be shown.</div>
+                    </div>
+                </label>
+                                
+                <input class="termInput" type="text" id="sstInput">
+
+                <ul id="sst" class="termList"></ul>
+
+                <div id="emailForSpecialDiv">
+                    <label for="emailForSpecial">E-mail me when an item is found that matches one of my special search terms</label>
+                    <input class="checkbox" id="emailForSpecial" type="checkbox">
+                </div>
+            </div>
+
+            
+            
+            <div class="lowerSearchTerms">
+                <div class="lowerTermContainer">
+                    <label class="searchTermLabel lower">Price:</label>
+    
+                    <label class="priceLabel" for="minPrice">Min</label>
+                    <input class="queryInput" type="number" id="minPrice" min="0" value="0">
+                    
+                    
+                    <label class="priceLabel" for="maxPrice">Max</label>
+                    <input class="queryInput" type="number" id="maxPrice" min="0" value="100">
+                </div>
+    
+                <div class="lowerTermContainer">
+                    <label class="searchTermLabel lower">Location:</label>
+                    
+                    <label for="zip">Zip Code</label>
+                    <input class="queryInput" type="number" id="zip" min="10000" max="99999" value="92663">
+    
+                    <label for="radius">Radius</label>
+                    <input class="queryInput" type="number" id="radius" min="0" max="500" value="500">
+    
+                </div>
+            </div>
+
+            <div id="searchSaving">
+                <label for="saveSearchCheck">Save Search</label>
+                <input id="saveSearchCheck" type="checkbox">
+
+                <label id="inputEmailLabel" for="inputEmail">E-mail</label>
+                <input class="queryInput" type="text" id="inputEmail" placeholder="youremail@email.com">
+    
+
+                <input style="float: right" class="terms" type="button" id="submitSearch" value="Search">
+            </div>
+
+            <div id="searchUpdating" style="display: none;">
+                <input style="float: right" class="terms" type="button" id="updateSavedSearch" value="Update">
+            </div>
+
+        </div>
+
+        <div id="viewSavedSearchesDiv" class="searchFeilds">
+
+            <label for="savedEmail">View my saved searches</label>
+            <input class="queryInput" type="text" id="savedEmail" placeholder="youremail@email.com" value="me@zacharyrichards.com">
+            <input class="terms" type="button" id="viewSavedSearches" value="Submit">
+        </div>
+
+        <div id="savedSearches">
+            <div id="savedSearchTemplate" style="display: none;" class="searchFeilds">
+
+                <input class="editButtons" type="button" id="deleteSavedSearch" value="Delete">
+                <input class="editButtons" type="button" id="editSavedSearch" value="Edit">
+
+                <div id="searchTerms">
+                    <div class="leftDiv">
+                        <label class="searchTermLabel" for="pstInput">Positive Search Terms</label>
+                        <ul id="pst" class="termList"></ul>
+                    </div>
+        
+                    <div class="rightDiv">
+                        <label class="searchTermLabel" for="nstInput">Negitive Search Terms</label>
+        
+                        <ul id="nst" class="termList"></ul>
+                    </div>
+        
+                </div>
+    
+                <div class="specialSearchTermsDiv">
+                    <label id="sstLabel" class="searchTermLabel" for="sstInput">Special Search Terms 
+                        <div class="tooltip">?
+                            <div class="tooltiptext">Any items that includes a "special" search term in their description will appear at the top of the search results. If an item does not include one of these terms, it will still be shown.</div>
+                        </div>
+                    </label>
+    
+                    <ul id="sst" class="termList"></ul>
+                </div>
+
+                <div class="lowerSearchTerms">
+                    <div class="lowerTermContainer">
+                        <label class="searchTermLabel lower">Price:</label>
+        
+                        <label class="priceLabel" for="savedMinPrice">Min</label>
+                        <input class="queryInput" type="number" id="savedMinPrice" min="0" value="0" disabled="true">
+                        
+                        
+                        <label class="priceLabel" for="savedMaxPrice">Max</label>
+                        <input class="queryInput" type="number" id="savedMaxPrice" min="0" value="100" disabled="true">
+                    </div>
+        
+                    <div class="lowerTermContainer">
+                        <label class="searchTermLabel lower">Location:</label>
+                        
+                        <label for="savedZip">Zip Code</label>
+                        <input class="queryInput" type="number" id="savedZip" min="10000" max="99999" value="92663" disabled="true">
+        
+                        <label for="savedRadius">Radius</label>
+                        <input class="queryInput" type="number" id="savedRadius" min="0" max="500" value="500" disabled="true">
+        
+                    </div>
+                </div>
+
+
+                <input style="float: right" class="terms" type="button" id="submitSavedSearch" value="Search">
+            </div>
+        </div>
+
+        <div class="spinner">
+            <div class="bounce1"></div>
+            <div class="bounce2"></div>
+            <div class="bounce3"></div>
+        </div>
+        <div id="specialListings">
+        </div>
+        <div id="listings"></div>
+    </body>
+    
+    <script src="script.js"></script>
+</html>
+
