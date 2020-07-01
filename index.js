@@ -1,6 +1,7 @@
 const fs = require("fs");
 
 const puppeteer = require('puppeteer-core');
+const chromePath = setChromePath();
 // const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 // puppeteer.use(StealthPlugin())
 
@@ -149,7 +150,6 @@ async function scrapeWebsites(data, socketID)
 {
     try
     {
-
         const args = [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -160,10 +160,9 @@ async function scrapeWebsites(data, socketID)
             '--disable-dev-shm-usage',
             '--user-agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3312.0 Safari/537.36"'
         ];
-    
+
         const options = {
-            executablePath: '/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome',
-            // executablePath: '/usr/bin/chromium-browser',
+            executablePath: chromePath,
             args: args,
             headless: true,
             ignoreHTTPSErrors: true
@@ -552,3 +551,15 @@ function isEquivalent(clientObj, serverObj) {
 var uniqueId = function() {
     return 'id-' + Math.random().toString(36).substr(2, 16);
 };
+
+function setChromePath(){
+    pathsToTry = ['/usr/bin/chromium-browser', '/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome'];
+
+    for (let i = 0; i < pathsToTry.length; i++) {
+        const path = pathsToTry[i];
+
+        if (fs.existsSync(path))
+            return path;
+        
+    }
+}
