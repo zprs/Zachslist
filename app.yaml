@@ -1,0 +1,21 @@
+runtime: nodejs
+env: flex
+
+manual_scaling:
+  instances: 1
+resources:
+  cpu: 1
+  memory_gb: 0.9
+  disk_size_gb: 0.5
+
+network:
+  session_affinity: true
+
+handlers:
+- url: /public
+  static_dir: public
+
+- url: /.*
+  secure: always
+  redirect_http_response_code: 301
+  script: auto

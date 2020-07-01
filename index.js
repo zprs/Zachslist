@@ -1,5 +1,9 @@
 const fs = require("fs");
-const puppeteer = require("puppeteer");
+
+const puppeteer = require('puppeteer-extra');
+// const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+// puppeteer.use(StealthPlugin())
+
 const nodemailer = require('nodemailer');
 
 var express = require('express');
@@ -14,6 +18,11 @@ console.log(`App started. Running on port ${ port }`);
 
 io.sockets.on('connection', (socket) => {
     console.log('a user connected');
+
+    socket.on('ping', () => 
+    {
+        socket.emit("ping");
+    });
 
     socket.on('updateSavedSearch', function(data) {
         var obj = JSON.parse(fs.readFileSync('savedSearches.json', 'utf8'));
@@ -117,51 +126,7 @@ io.sockets.on('connection', (socket) => {
             fs.writeFileSync('savedSearches.json',JSON.stringify(obj),{encoding:'utf8'});
         }
 
-        (async () => {
-
-            let browser = await puppeteer.launch({
-                headless: false,
-                args: ['--no-sandbox', '--disable-setuid-sandbox'],
-              });
-            let page = await browser.newPage();
-
-            // page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36');
-
-            page.on('load', () => console.log("Loaded: " + page.url()));
-
-            //Craigslist Scrape -----------------
-            let craigslistURL = craigslistLinkGen(data.minPrice, data.maxPrice, data.zip, data.radius, data.positiveTerms, data.negitiveTerms);    
-            await page.goto(craigslistURL, { waitUntil: 'networkidle0' });
-        
-            let CLScrapeData = await page.evaluate(extractCLItems);
-
-            //Offer Up Scrape -------------------
-            let offerUpURL = offerUpLinkGen(data.minPrice, data.maxPrice, data.radius, data.positiveTerms);
-            await page.goto(offerUpURL, { waitUntil: 'networkidle0' });
-            
-            let OUScrapeData = await scrapeInfiniteScrollItems(page, extractOUItems, 50, data);
-
-            //FBMP Scrape -------------------
-            let fbmpURL = facebookMPLinkGen(data.minPrice, data.maxPrice, data.radius, data.positiveTerms);
-            await page.goto(fbmpURL, { waitUntil: 'networkidle0' });
-
-            let FBMPScrapeData = await scrapeInfiniteScrollItems(page, extractFBMPItems, 50, data);
-            
-            var totalNumberScraped = CLScrapeData.length + OUScrapeData.length + FBMPScrapeData.length;
-            var combinedData = [];
-
-            for (let i = 0; i < totalNumberScraped; i++) {
-                if(i < CLScrapeData.length)
-                    combinedData.push(CLScrapeData[i]);
-                if(i < OUScrapeData.length)
-                    combinedData.push(OUScrapeData[i]);
-                if(i < FBMPScrapeData.length)
-                    combinedData.push(FBMPScrapeData[i]);
-            }
-
-            await browser.close();
-            socket.emit("scrape", {scrapeData: combinedData, urls: [craigslistURL, offerUpURL, fbmpURL], filters: data});
-        })();
+        var scrapedData = scrapeWebsites(data, socket.id);
     });
 
     socket.on('viewSavedSearches', function(data) {
@@ -178,6 +143,88 @@ io.sockets.on('connection', (socket) => {
         console.log('user disconnected');
     });
 });
+
+async function scrapeWebsites(data, socketID)
+{
+    const args = [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-infobars',
+        '--window-position=0,0',
+        '--ignore-certifcate-errors',
+        '--ignore-certifcate-errors-spki-list',
+        '--disable-dev-shm-usage',
+        '--user-agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3312.0 Safari/537.36"'
+    ];
+
+    const options = {
+        args: args,
+        headless: true,
+        ignoreHTTPSErrors: true
+    };
+
+    let browser = await puppeteer.launch(options);
+    // const preloadFile = fs.readFileSync('./preload.js', 'utf8');
+
+    let page = await browser.newPage();
+    await page.setRequestInterception(true);
+
+    page.on('request', (request) => {
+        if (['stylesheet', 'font'].indexOf(request.resourceType()) !== -1) {
+            request.abort();
+        } else {
+            request.continue();
+        }
+    });
+
+    // await page.evaluateOnNewDocument(preloadFile);
+    page.on('load', () => console.log("Loaded: " + page.url()));
+
+    //Craigslist Scrape -----------------
+    let craigslistURL = craigslistLinkGen(data.minPrice, data.maxPrice, data.zip, data.radius, data.positiveTerms, data.negitiveTerms);    
+    await page.goto(craigslistURL, { waitUntil: 'networkidle2' });
+
+    let CLScrapeData = await page.evaluate(extractCLItems);
+
+    io.to(socketID).emit("message", "finised CL Scrape");
+
+    //Offer Up Scrape -------------------
+    let offerUpURL = offerUpLinkGen(data.minPrice, data.maxPrice, data.radius, data.positiveTerms);
+    await page.goto(offerUpURL, { waitUntil: 'networkidle2' });
+    
+    let OUScrapeData = await scrapeInfiniteScrollItems(page, extractOUItems, 50, data);
+
+    io.to(socketID).emit("message", "finised OU Scrape");
+
+    //FBMP Scrape -------------------
+    let fbmpURL = facebookMPLinkGen(data.minPrice, data.maxPrice, data.radius, data.positiveTerms);
+    await page.goto(fbmpURL, { waitUntil: 'networkidle2' });
+
+    let FBMPScrapeData = await scrapeInfiniteScrollItems(page, extractFBMPItems, 50, data);
+    
+    io.to(socketID).emit("message", "finised FBMP Scrape");
+
+    var totalNumberScraped = CLScrapeData.length + OUScrapeData.length + FBMPScrapeData.length;
+    var combinedData = [];
+
+    io.to(socketID).emit("message", "finishedScraping");
+
+    for (let i = 0; i < totalNumberScraped; i++) {
+        if(i < CLScrapeData.length)
+            combinedData.push(CLScrapeData[i]);
+        if(i < OUScrapeData.length)
+            combinedData.push(OUScrapeData[i]);
+        if(i < FBMPScrapeData.length)
+            combinedData.push(FBMPScrapeData[i]);
+    }
+
+    io.to(socketID).emit("message", "finised conbiningScrape");
+    await browser.close();
+
+    //return({scrapedData: combinedData, urls: [craigslistURL, offerUpURL, fbmpURL]});
+
+    io.to(socketID).emit("scrape", {scrapeData: combinedData, urls: [craigslistURL, offerUpURL, fbmpURL], filters: data});
+}
 
 function craigslistLinkGen(minPrice, maxPrice, zip, radius, positiveTerms, negitiveTerms)
 {

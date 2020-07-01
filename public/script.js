@@ -1,4 +1,4 @@
-socket = io.connect('http://localhost:8080');
+socket = io();
 
 socket.on('scrape', function(data){
     $("#mainSearch").hide();
@@ -356,7 +356,13 @@ $(document).ready(function(){
         $(".spinner").show();
         socket.emit("search", {searchFromId: true, searchId: searchId});
     }
+
+
 });
+
+socket.on("message", (data) => {
+    console.log("message recieved: " + data);
+})
 
 updateEmailInput();
 
