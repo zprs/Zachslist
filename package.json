@@ -7,11 +7,12 @@
     "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "author": "Zachary Richards",
   "license": "ISC",
   "dependencies": {
     "express": "^4.17.1",
     "fs": "0.0.1-security",
+    "node-cleanup": "^2.1.2",
     "nodemailer": "^6.4.10",
     "puppeteer-core": "^3.3.0",
     "socket.io": "^2.3.0"

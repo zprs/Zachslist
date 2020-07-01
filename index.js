@@ -2,18 +2,21 @@ const fs = require("fs");
 
 const puppeteer = require('puppeteer-core');
 const chromePath = setChromePath();
+var browserWSEndpoint = null;
+spawnPuppeteerBrowser();
 // const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 // puppeteer.use(StealthPlugin())
 
+var nodeCleanup = require('node-cleanup');
 const nodemailer = require('nodemailer');
 
 var express = require('express');
-const { response } = require("express");
 var app = express();
+app.use(express.static('public'));
+
 const port = process.env.PORT || 3000;
 var server = app.listen(port, "0.0.0.0");
 
-app.use(express.static('public'));
 var io = require('socket.io')(server);
 
 console.log(`App started. Running on port ${ port }`);
@@ -146,32 +149,41 @@ io.sockets.on('connection', (socket) => {
     });
 });
 
+async function spawnPuppeteerBrowser()
+{
+    const args = [
+        '--no-sandbox',
+        '--user-data-dir=./tmp/session',
+        '--disable-setuid-sandbox',
+        '--disable-infobars',
+        '--window-position=0,0',
+        '--ignore-certifcate-errors',
+        '--ignore-certifcate-errors-spki-list',
+        '--disable-dev-shm-usage',
+        '--user-agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3312.0 Safari/537.36"'
+    ];
+
+    const options = {
+        executablePath: chromePath,
+        args: args,
+        headless: false,
+        ignoreHTTPSErrors: true
+    };
+
+    let browser = await puppeteer.launch(options);
+    browserWSEndpoint = browser.wsEndpoint();
+    browser.disconnect();
+}
+
 async function scrapeWebsites(data, socketID)
 {
     try
     {
-        const args = [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-infobars',
-            '--window-position=0,0',
-            '--ignore-certifcate-errors',
-            '--ignore-certifcate-errors-spki-list',
-            '--disable-dev-shm-usage',
-            '--user-agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3312.0 Safari/537.36"'
-        ];
-
-        const options = {
-            executablePath: chromePath,
-            args: args,
-            headless: true,
-            ignoreHTTPSErrors: true
-        };
-    
-        let browser = await puppeteer.launch(options);
+        browser = await puppeteer.connect({browserWSEndpoint});   
         // const preloadFile = fs.readFileSync('./preload.js', 'utf8');
     
         let page = await browser.newPage();
+        await page.setViewport({ width: 400, height: 500 });
         await page.setRequestInterception(true);
     
         page.on('request', (request) => {
@@ -187,7 +199,7 @@ async function scrapeWebsites(data, socketID)
     
         //Craigslist Scrape -----------------
         let craigslistURL = craigslistLinkGen(data.minPrice, data.maxPrice, data.zip, data.radius, data.positiveTerms, data.negitiveTerms);    
-        await page.goto(craigslistURL, { waitUntil: 'networkidle2', timeout: 0});
+        await page.goto(craigslistURL, { waitUntil: 'networkidle0', timeout: 0});
     
         let CLScrapeData = await page.evaluate(extractCLItems);
     
@@ -195,7 +207,7 @@ async function scrapeWebsites(data, socketID)
     
         //Offer Up Scrape -------------------
         let offerUpURL = offerUpLinkGen(data.minPrice, data.maxPrice, data.radius, data.positiveTerms);
-        await page.goto(offerUpURL, { waitUntil: 'networkidle2', timeout: 0 });
+        await page.goto(offerUpURL, { waitUntil: 'networkidle0', timeout: 0 });
         
         let OUScrapeData = await scrapeInfiniteScrollItems(page, extractOUItems, 50, data);
     
@@ -203,7 +215,7 @@ async function scrapeWebsites(data, socketID)
     
         //FBMP Scrape -------------------
         let fbmpURL = facebookMPLinkGen(data.minPrice, data.maxPrice, data.radius, data.positiveTerms);
-        await page.goto(fbmpURL, { waitUntil: 'networkidle2', timeout: 0 });
+        await page.goto(fbmpURL, { waitUntil: 'networkidle0', timeout: 0 });
     
         let FBMPScrapeData = await scrapeInfiniteScrollItems(page, extractFBMPItems, 50, data);
         
@@ -226,7 +238,8 @@ async function scrapeWebsites(data, socketID)
         console.log("Finised conbiningScrape");
 
         io.to(socketID).emit("scrape", {scrapeData: combinedData, urls: [craigslistURL, offerUpURL, fbmpURL], filters: data});
-        await browser.close();
+        await page.close();
+        await browser.disconnect();
     }
     catch(error)
     {
@@ -562,4 +575,14 @@ function setChromePath(){
             return path;
         
     }
+}
+
+nodeCleanup(() => {
+    process.exit(cleanup())
+});
+
+async function cleanup()
+{
+    browser = await puppeteer.connect({browserWSEndpoint});   
+    browser.close();
 }
