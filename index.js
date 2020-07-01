@@ -7,6 +7,7 @@ const puppeteer = require('puppeteer-core');
 const nodemailer = require('nodemailer');
 
 var express = require('express');
+const { response } = require("express");
 var app = express();
 const port = process.env.PORT || 3000;
 var server = app.listen(port, "0.0.0.0");
@@ -126,7 +127,7 @@ io.sockets.on('connection', (socket) => {
             fs.writeFileSync('savedSearches.json',JSON.stringify(obj),{encoding:'utf8'});
         }
 
-        var scrapedData = scrapeWebsites(data, socket.id);
+        scrapeWebsites(data, socket.id);
     });
 
     socket.on('viewSavedSearches', function(data) {
@@ -146,85 +147,92 @@ io.sockets.on('connection', (socket) => {
 
 async function scrapeWebsites(data, socketID)
 {
-    const args = [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-infobars',
-        '--window-position=0,0',
-        '--ignore-certifcate-errors',
-        '--ignore-certifcate-errors-spki-list',
-        '--disable-dev-shm-usage',
-        '--user-agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3312.0 Safari/537.36"'
-    ];
+    try
+    {
 
-    const options = {
-        executablePath: '/usr/bin/chromium-browser',
-        args: args,
-        headless: true,
-        ignoreHTTPSErrors: true
-    };
-
-    let browser = await puppeteer.launch(options);
-    // const preloadFile = fs.readFileSync('./preload.js', 'utf8');
-
-    let page = await browser.newPage();
-    await page.setRequestInterception(true);
-
-    page.on('request', (request) => {
-        if (['stylesheet', 'font'].indexOf(request.resourceType()) !== -1) {
-            request.abort();
-        } else {
-            request.continue();
+        const args = [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-infobars',
+            '--window-position=0,0',
+            '--ignore-certifcate-errors',
+            '--ignore-certifcate-errors-spki-list',
+            '--disable-dev-shm-usage',
+            '--user-agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3312.0 Safari/537.36"'
+        ];
+    
+        const options = {
+            executablePath: '/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome',
+            // executablePath: '/usr/bin/chromium-browser',
+            args: args,
+            headless: true,
+            ignoreHTTPSErrors: true
+        };
+    
+        let browser = await puppeteer.launch(options);
+        // const preloadFile = fs.readFileSync('./preload.js', 'utf8');
+    
+        let page = await browser.newPage();
+        await page.setRequestInterception(true);
+    
+        page.on('request', (request) => {
+            if (['stylesheet', 'font'].indexOf(request.resourceType()) !== -1) {
+                request.abort();
+            } else {
+                request.continue();
+            }
+        });
+    
+        // await page.evaluateOnNewDocument(preloadFile);
+        page.on('load', () => console.log("Loaded: " + page.url()));
+    
+        //Craigslist Scrape -----------------
+        let craigslistURL = craigslistLinkGen(data.minPrice, data.maxPrice, data.zip, data.radius, data.positiveTerms, data.negitiveTerms);    
+        await page.goto(craigslistURL, { waitUntil: 'networkidle2', timeout: 0});
+    
+        let CLScrapeData = await page.evaluate(extractCLItems);
+    
+        console.log("finised CL Scrape");
+    
+        //Offer Up Scrape -------------------
+        let offerUpURL = offerUpLinkGen(data.minPrice, data.maxPrice, data.radius, data.positiveTerms);
+        await page.goto(offerUpURL, { waitUntil: 'networkidle2', timeout: 0 });
+        
+        let OUScrapeData = await scrapeInfiniteScrollItems(page, extractOUItems, 50, data);
+    
+        console.log("finised OU Scrape");
+    
+        //FBMP Scrape -------------------
+        let fbmpURL = facebookMPLinkGen(data.minPrice, data.maxPrice, data.radius, data.positiveTerms);
+        await page.goto(fbmpURL, { waitUntil: 'networkidle2', timeout: 0 });
+    
+        let FBMPScrapeData = await scrapeInfiniteScrollItems(page, extractFBMPItems, 50, data);
+        
+        console.log("finised FBMP Scrape");
+    
+        var totalNumberScraped = CLScrapeData.length + OUScrapeData.length + FBMPScrapeData.length;
+        var combinedData = [];
+    
+        console.log("FinishedScraping");
+    
+        for (let i = 0; i < totalNumberScraped; i++) {
+            if(i < CLScrapeData.length)
+                combinedData.push(CLScrapeData[i]);
+            if(i < OUScrapeData.length)
+                combinedData.push(OUScrapeData[i]);
+            if(i < FBMPScrapeData.length)
+                combinedData.push(FBMPScrapeData[i]);
         }
-    });
-
-    // await page.evaluateOnNewDocument(preloadFile);
-    page.on('load', () => console.log("Loaded: " + page.url()));
-
-    //Craigslist Scrape -----------------
-    let craigslistURL = craigslistLinkGen(data.minPrice, data.maxPrice, data.zip, data.radius, data.positiveTerms, data.negitiveTerms);    
-    await page.goto(craigslistURL, { waitUntil: 'networkidle2' });
-
-    let CLScrapeData = await page.evaluate(extractCLItems);
-
-    io.to(socketID).emit("message", "finised CL Scrape");
-
-    //Offer Up Scrape -------------------
-    let offerUpURL = offerUpLinkGen(data.minPrice, data.maxPrice, data.radius, data.positiveTerms);
-    await page.goto(offerUpURL, { waitUntil: 'networkidle2' });
     
-    let OUScrapeData = await scrapeInfiniteScrollItems(page, extractOUItems, 50, data);
+        console.log("Finised conbiningScrape");
 
-    io.to(socketID).emit("message", "finised OU Scrape");
-
-    //FBMP Scrape -------------------
-    let fbmpURL = facebookMPLinkGen(data.minPrice, data.maxPrice, data.radius, data.positiveTerms);
-    await page.goto(fbmpURL, { waitUntil: 'networkidle2' });
-
-    let FBMPScrapeData = await scrapeInfiniteScrollItems(page, extractFBMPItems, 50, data);
-    
-    io.to(socketID).emit("message", "finised FBMP Scrape");
-
-    var totalNumberScraped = CLScrapeData.length + OUScrapeData.length + FBMPScrapeData.length;
-    var combinedData = [];
-
-    io.to(socketID).emit("message", "finishedScraping");
-
-    for (let i = 0; i < totalNumberScraped; i++) {
-        if(i < CLScrapeData.length)
-            combinedData.push(CLScrapeData[i]);
-        if(i < OUScrapeData.length)
-            combinedData.push(OUScrapeData[i]);
-        if(i < FBMPScrapeData.length)
-            combinedData.push(FBMPScrapeData[i]);
+        io.to(socketID).emit("scrape", {scrapeData: combinedData, urls: [craigslistURL, offerUpURL, fbmpURL], filters: data});
+        await browser.close();
     }
-
-    io.to(socketID).emit("message", "finised conbiningScrape");
-    await browser.close();
-
-    //return({scrapedData: combinedData, urls: [craigslistURL, offerUpURL, fbmpURL]});
-
-    io.to(socketID).emit("scrape", {scrapeData: combinedData, urls: [craigslistURL, offerUpURL, fbmpURL], filters: data});
+    catch(error)
+    {
+        console.log("Caught webscraping error:  " + error);
+    }
 }
 
 function craigslistLinkGen(minPrice, maxPrice, zip, radius, positiveTerms, negitiveTerms)
@@ -351,7 +359,6 @@ async function scrapeInfiniteScrollItems(page, extractItems, itemTargetCount, fi
     var scrollDistance = 0;
     var itemsStillNeedToLoad = true;
 
-
     var numberOfItterations = 0;
 
     while (items.length < itemTargetCount || itemsStillNeedToLoad && numberOfItterations < maxItterations) {
@@ -399,7 +406,8 @@ async function scrapeInfiniteScrollItems(page, extractItems, itemTargetCount, fi
         }
         
         await page.evaluate(`window.scrollTo(0, ${scrollDistance})`);
-        await page.waitForFunction(`document.body.scrollHeight > ${scrollDistance}`);
+        // await page.waitForFunction(`document.body.scrollHeight > ${scrollDistance}`);
+
         scrollDistance += scrollStep;
         
         await page.evaluate(() => {
@@ -411,13 +419,16 @@ async function scrapeInfiniteScrollItems(page, extractItems, itemTargetCount, fi
 
         await page.waitFor(scrollDelay);
 
-        console.log(items.length);
+        if(items.length % 10 == 0)
+            console.log(items.length);
 
         if(items.length > 0)
             itemsStillNeedToLoad = items[items.length - 1].posY > scrollDistance;
 
         numberOfItterations++;
     }
+
+    console.log("Finished Infinite Scroll Scrape -------")
 
     return items;
 }
