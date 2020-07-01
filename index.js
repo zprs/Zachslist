@@ -158,6 +158,7 @@ async function scrapeWebsites(data, socketID)
     ];
 
     const options = {
+        executablePath: '/usr/bin/chromium-browser',
         args: args,
         headless: true,
         ignoreHTTPSErrors: true
