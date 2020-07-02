@@ -1,21 +1,9 @@
-2020/07/01-10:01:42.000 10f03 Reusing MANIFEST /Users/zachary.richards/Desktop/Zachslist/tmp/session/Default/Session Storage/MANIFEST-000001
-2020/07/01-10:01:42.001 10f03 Recovering log #8
-2020/07/01-10:01:42.001 10f03 Reusing old log /Users/zachary.richards/Desktop/Zachslist/tmp/session/Default/Session Storage/000008.log 
-2020/07/01-10:01:48.418 20f0b Level-0 table #12: started
-2020/07/01-10:01:48.433 20f0b Level-0 table #12: 42658 bytes OK
-2020/07/01-10:01:48.460 20f0b Delete type=0 #8
-2020/07/01-10:02:05.416 20f0b Level-0 table #14: started
-2020/07/01-10:02:05.432 20f0b Level-0 table #14: 56377 bytes OK
-2020/07/01-10:02:05.458 20f0b Delete type=0 #11
-2020/07/01-10:02:15.378 20f0b Level-0 table #16: started
-2020/07/01-10:02:15.392 20f0b Level-0 table #16: 42345 bytes OK
-2020/07/01-10:02:15.418 20f0b Delete type=0 #13
-2020/07/01-10:02:15.423 20f0b Compacting 4@0 + 1@1 files
-2020/07/01-10:02:15.436 20f0b Generated table #17@0: 30 keys, 98485 bytes
-2020/07/01-10:02:15.436 20f0b Compacted 4@0 + 1@1 files => 98485 bytes
-2020/07/01-10:02:15.464 20f0b compacted to: files[ 0 1 1 0 0 0 0 ]
-2020/07/01-10:02:15.465 20f0b Delete type=2 #14
-2020/07/01-10:02:15.466 20f0b Delete type=2 #16
-2020/07/01-10:02:15.466 20f0b Delete type=2 #7
-2020/07/01-10:02:15.466 20f0b Delete type=2 #12
-2020/07/01-10:02:15.466 20f0b Delete type=2 #9
+2020/07/01-11:14:19.316 eb03 Reusing MANIFEST /Users/zachary.richards/Desktop/Zachslist/tmp/session/Default/Session Storage/MANIFEST-000001
+2020/07/01-11:14:19.317 eb03 Recovering log #15
+2020/07/01-11:14:19.317 eb03 Reusing old log /Users/zachary.richards/Desktop/Zachslist/tmp/session/Default/Session Storage/000015.log 
+2020/07/01-11:14:26.650 2960b Level-0 table #20: started
+2020/07/01-11:14:26.666 2960b Level-0 table #20: 42959 bytes OK
+2020/07/01-11:14:26.698 2960b Delete type=0 #15
+2020/07/01-11:14:31.322 2960b Level-0 table #22: started
+2020/07/01-11:14:31.337 2960b Level-0 table #22: 68072 bytes OK
+2020/07/01-11:14:31.364 2960b Delete type=0 #19

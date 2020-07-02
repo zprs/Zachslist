@@ -166,7 +166,7 @@ async function spawnPuppeteerBrowser()
     const options = {
         executablePath: chromePath,
         args: args,
-        headless: true,
+        headless: false,
         ignoreHTTPSErrors: true
     };
 
