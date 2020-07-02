@@ -1,5 +1,9 @@
 const fs = require("fs");
 
+var Xvfb = require('xvfb');
+var xvfb = new Xvfb();
+xvfb.startSync();
+
 const puppeteer = require('puppeteer-core');
 const chromePath = setChromePath();
 var browserWSEndpoint = null;
@@ -152,15 +156,18 @@ io.sockets.on('connection', (socket) => {
 async function spawnPuppeteerBrowser()
 {
     const args = [
-        '--window-size=1280,1024', // see defaultViewport
+        '--disable-gpu',
         '--no-sandbox',
         '--user-data-dir=./tmp/session',
         '--disable-setuid-sandbox',
+        '--mute-audio',
         '--disable-infobars',
         '--window-position=0,0',
         '--ignore-certifcate-errors',
         '--ignore-certifcate-errors-spki-list',
         '--disable-dev-shm-usage',
+        '--proxy-server="direct://"',
+        '--proxy-bypass-list=*',
         '--user-agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3312.0 Safari/537.36"'
     ];
 
@@ -168,19 +175,25 @@ async function spawnPuppeteerBrowser()
         executablePath: chromePath,
         args: args,
         headless: false,
+        devtools: false,
         ignoreHTTPSErrors: true
     };
 
     let browser = await puppeteer.launch(options);
     browserWSEndpoint = browser.wsEndpoint();
     browser.disconnect();
+
+    console.log("Puppeter Started");
 }
 
 async function scrapeWebsites(data, socketID)
 {
+    console.log("scrape request recieved");
+
     try
     {
         browser = await puppeteer.connect({browserWSEndpoint});   
+        console.log("browser connected");
         // const preloadFile = fs.readFileSync('./preload.js', 'utf8');
     
         let page = await browser.newPage();
@@ -197,11 +210,11 @@ async function scrapeWebsites(data, socketID)
     
         // await page.evaluateOnNewDocument(preloadFile);
         page.on('load', () => console.log("Loaded: " + page.url()));
-    
+
         //Craigslist Scrape -----------------
-        let craigslistURL = craigslistLinkGen(data.minPrice, data.maxPrice, data.zip, data.radius, data.positiveTerms, data.negitiveTerms);    
+        let craigslistURL = craigslistLinkGen(data.minPrice, data.maxPrice, data.zip, data.radius, data.positiveTerms, data.negitiveTerms);
+        console.log("goto CL");
         await page.goto(craigslistURL, { waitUntil: 'networkidle0', timeout: 0});
-    
         let CLScrapeData = await page.evaluate(extractCLItems);
     
         console.log("finised CL Scrape");
@@ -567,7 +580,7 @@ var uniqueId = function() {
 };
 
 function setChromePath(){
-    pathsToTry = ['./startChromium.sh', '/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome'];
+    pathsToTry = ['/usr/bin/chromium-browser', '/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome'];
 
     for (let i = 0; i < pathsToTry.length; i++) {
         const path = pathsToTry[i];
@@ -586,4 +599,5 @@ async function cleanup()
 {
     browser = await puppeteer.connect({browserWSEndpoint});   
     browser.close();
+    xvfb.stopSync();
 }
