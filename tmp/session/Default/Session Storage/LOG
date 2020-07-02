@@ -1,9 +1,6 @@
-2020/07/01-11:14:19.316 eb03 Reusing MANIFEST /Users/zachary.richards/Desktop/Zachslist/tmp/session/Default/Session Storage/MANIFEST-000001
-2020/07/01-11:14:19.317 eb03 Recovering log #15
-2020/07/01-11:14:19.317 eb03 Reusing old log /Users/zachary.richards/Desktop/Zachslist/tmp/session/Default/Session Storage/000015.log 
-2020/07/01-11:14:26.650 2960b Level-0 table #20: started
-2020/07/01-11:14:26.666 2960b Level-0 table #20: 42959 bytes OK
-2020/07/01-11:14:26.698 2960b Delete type=0 #15
-2020/07/01-11:14:31.322 2960b Level-0 table #22: started
-2020/07/01-11:14:31.337 2960b Level-0 table #22: 68072 bytes OK
-2020/07/01-11:14:31.364 2960b Delete type=0 #19
+2020/07/02-07:42:38.006 b303 Reusing MANIFEST /Users/zachary.richards/Desktop/Zachslist/tmp/session/Default/Session Storage/MANIFEST-000001
+2020/07/02-07:42:38.006 b303 Recovering log #31
+2020/07/02-07:42:38.006 b303 Reusing old log /Users/zachary.richards/Desktop/Zachslist/tmp/session/Default/Session Storage/000031.log 
+2020/07/02-07:42:49.928 20e0b Level-0 table #35: started
+2020/07/02-07:42:49.945 20e0b Level-0 table #35: 44249 bytes OK
+2020/07/02-07:42:49.979 20e0b Delete type=0 #31

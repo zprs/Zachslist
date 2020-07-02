@@ -152,6 +152,7 @@ io.sockets.on('connection', (socket) => {
 async function spawnPuppeteerBrowser()
 {
     const args = [
+        '--window-size=1280,1024', // see defaultViewport
         '--no-sandbox',
         '--user-data-dir=./tmp/session',
         '--disable-setuid-sandbox',
@@ -373,7 +374,7 @@ async function scrapeInfiniteScrollItems(page, extractItems, itemTargetCount, fi
 
     var numberOfItterations = 0;
 
-    while (items.length < itemTargetCount || itemsStillNeedToLoad && numberOfItterations < maxItterations) {
+    while ((items.length < itemTargetCount || itemsStillNeedToLoad) && numberOfItterations < maxItterations) {
 
         if(items.length < itemTargetCount)
         {
@@ -566,7 +567,7 @@ var uniqueId = function() {
 };
 
 function setChromePath(){
-    pathsToTry = ['/usr/bin/chromium-browser', '/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome'];
+    pathsToTry = ['./startChromium.sh', '/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome'];
 
     for (let i = 0; i < pathsToTry.length; i++) {
         const path = pathsToTry[i];
