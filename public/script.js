@@ -146,6 +146,11 @@ function filterScrape(scrapedData, filters)
     for (let i = 0; i < filteredData.length; i++) {
         const listing = filteredData[i];
 
+        if(listing.price.toLowerCase() == "sold")
+        {
+            filteredData.splice(i, 1);
+            numberOfFilteredListings++;
+        }
 
         for (let x = 0; x < filters.negitiveTerms.length; x++) {
             const term = filters.negitiveTerms[x];

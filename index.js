@@ -131,8 +131,6 @@ io.sockets.on('connection', (socket) => {
         }
 
         scrapeWebsites(data, socket.id);
-
-        
     });
 
     socket.on('viewSavedSearches', function(data) {
@@ -195,11 +193,13 @@ async function scrapeWebsites(data, socketID)
         // const preloadFile = fs.readFileSync('./preload.js', 'utf8');
     
         let page = await browser.newPage();
-        await page.setViewport({ width: 400, height: 500 });
+        // await page.setViewport({ width: 400, height: 500 });
         await page.setRequestInterception(true);
 
+        var lastTime = Date.now();
         page.on('request', (req) => {
-            if(req.resourceType() == 'stylesheet' || req.resourceType() == 'font' || req.resourceType() == 'image'){
+
+            if(req.resourceType() === 'stylesheet' || req.resourceType() === 'font' || req.resourceType() === 'image'){
                 req.abort();
             }
             else {
@@ -376,10 +376,9 @@ function sendMail(to, subject, text){
           console.log('Email sent: ' + info.response);
         }
       });
-
 }
 
-async function scrapeInfiniteScrollItems(page, extractItems, itemTargetCount, filters, scrollStep = 300, scrollDelay = 10, maxItterations = 400) {
+async function scrapeInfiniteScrollItems(page, extractItems, itemTargetCount, filters, scrollStep = 200, scrollDelay = 0, maxItterations = 1700) {
     let items = [];
 
     var scrollDistance = 0;
