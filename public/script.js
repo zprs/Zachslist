@@ -61,6 +61,7 @@ socket.on('loadSavedSearches', function(data){
         searchObj.find("#savedMaxPrice").html(dataset.maxPrice);
         searchObj.find("#savedZip").html(dataset.zip);
         searchObj.find("#savedRadius").html(dataset.radius);
+        searchObj.find("#emailOnSpecial").prop('checked', dataset.emailOnSpecial);
 
         var savedSearchId = "savedSearch" + i;
 
@@ -108,6 +109,7 @@ function setupSearchObjectFunctions(searchObjId, dataset){
             var data = congregateData($("#mainSearch"));
             data.email = dataset.email;
             data.id = dataset.id;
+            data.emailOnSpecial = $("#emailOnSpecial").is(":checked");
 
             $("#viewSavedSearchesDiv").show();
 

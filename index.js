@@ -1,5 +1,6 @@
 const fs = require("fs");
 var path = require('path');
+var CronJob = require('cron').CronJob;
 
 const puppeteer = require('puppeteer-core');
 const chromePath = setChromePath();
@@ -10,6 +11,7 @@ var nodeCleanup = require('node-cleanup');
 const nodemailer = require('nodemailer');
 
 var express = require('express');
+const { send } = require("process");
 var app = express();
 app.use(express.static('public'));
 
@@ -17,8 +19,109 @@ const port = process.env.PORT || 3000;
 var server = app.listen(port, "0.0.0.0");
 
 var io = require('socket.io')(server);
-
 console.log(`App started. Running on port ${ port }`);
+
+// var makeSearchesCron = new CronJob('* * * * *', function() {
+//     makeSearches();
+// }, null, true, 'America/Los_Angeles');
+  
+
+function makeSearches()
+{
+    var obj = JSON.parse(fs.readFileSync('savedSearches.json', 'utf8'));
+    
+    var emails = Object.keys(obj);
+
+    for (let i = 0; i < emails.length; i++) {
+        const email = emails[i];
+
+        var savedSearches = obj[email];
+        
+        for (let x = 0; x < savedSearches.length; x++) {
+            const search = savedSearches[x];
+
+            if(search.emailOnSpecial)
+            {
+                filterSpecialSearches(email, search, obj)
+            }
+        }
+    }
+}
+
+async function filterSpecialSearches(email, search, oldObj)
+{
+    var obj = oldObj;
+    var previousSpecials = search.previousSpecials || [];
+    var newSpecials = [];
+
+    var returnedData = await scrapeWebsites(search);
+
+    for (let y = 0; y < returnedData.data.length; y++) {
+        const listing = returnedData.data[y];
+
+        var wasPreviouslyFound = false;
+
+        for (let n = 0; n < previousSpecials.length; n++) {
+            const previousSpecial = previousSpecials[n];
+
+            if(previousSpecial.description == listing.description && previousSpecial.price == listing.price && previousSpecial.imageSrc == listing.imageSrc)
+            {
+                console.log("special prevoiusly found ... skipping");
+                wasPreviouslyFound = true;
+                break;
+            }
+            
+        }
+
+        if(wasPreviouslyFound)
+            continue;
+
+        var includesTerm = false;
+
+        for (let z = 0; z < search.specialTerms.length; z++) {
+            const term = search.specialTerms[z];
+
+            if(listing.description.toLowerCase().includes(term.toLowerCase()))
+            {
+                console.log("new special! : " + listing.description);
+                newSpecials.push(listing);
+                includesTerm = true;
+                break;
+            }
+        }
+
+        if(includesTerm == true)
+            break;  
+    }
+
+    if(search.previousSpecials)
+        search.previousSpecials = search.previousSpecials.concat(newSpecials);
+    else
+        search.previousSpecials = newSpecials;
+
+    if(newSpecials.length > 0)
+        sendSpecialUpdate(email, newSpecials);
+
+    fs.writeFileSync('savedSearches.json', JSON.stringify(obj),{encoding:'utf8'});
+}
+
+
+function sendSpecialUpdate(email, specials)
+{
+
+    var text = "There are " + specials.length + " new listings that include one of your special search terms: ";
+
+    for (let i = 0; i < specials.length; i++) {
+        const special = specials[i];
+
+        text += special.description + ", " + special.price;
+    }
+
+    subject = specials.length + " new special listing(s)";
+
+    sendMail(email, subject, text);
+}
+
 
 io.sockets.on('connection', (socket) => {
     console.log('a user connected');
@@ -34,6 +137,8 @@ io.sockets.on('connection', (socket) => {
 
         for (let i = 0; i < previousData.length; i++) {
             const prevObj = previousData[i];
+
+            console.log(data);
 
             if(prevObj.id == data.id)
                 obj[data.email][i] = data;
@@ -130,7 +235,11 @@ io.sockets.on('connection', (socket) => {
             fs.writeFileSync('savedSearches.json',JSON.stringify(obj),{encoding:'utf8'});
         }
 
-        scrapeWebsites(data, socket.id);
+        (async () => {
+            var returnedData = await scrapeWebsites(data);
+            socket.emit("scrape", {scrapeData: returnedData.data, urls: returnedData.urls, filters: data});
+          })(); 
+
     });
 
     socket.on('viewSavedSearches', function(data) {
@@ -178,9 +287,11 @@ async function spawnPuppeteerBrowser()
     browser.disconnect();
 
     console.log("Puppeter Started");
+
+    makeSearches();
 }
 
-async function scrapeWebsites(data, socketID)
+async function scrapeWebsites(data)
 {
     console.log("scrape request recieved");
 
@@ -249,16 +360,17 @@ async function scrapeWebsites(data, socketID)
         }
     
         console.log("Finised combining scrapes");
-        io.to(socketID).emit("scrape", {scrapeData: combinedData, urls: [craigslistURL, offerUpURL, fbmpURL], filters: data});
+
         await page.close();
         await browser.disconnect();
+
+        console.log('Took', Date.now() - start, 'ms');
+        return {data: combinedData, urls: [craigslistURL, offerUpURL, fbmpURL]};
     }
     catch(error)
     {
         console.log("Caught webscraping error:  " + error);
     }
-
-    console.log('Took', Date.now() - start, 'ms');
 }
 
 function craigslistLinkGen(minPrice, maxPrice, zip, radius, positiveTerms, negitiveTerms)
@@ -351,13 +463,16 @@ function facebookMPLinkGen(minPrice, maxPrice, radius, positiveTerms)
 ///Mailer
 function sendMail(to, subject, text){
 
-    var senderEmail = "zpr52024@gmail.com"
+    
+    var obj = JSON.parse(fs.readFileSync('emailCredentials.json', 'utf8'));
+
+    var senderEmail = obj.email;
 
     var transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
           user: senderEmail,
-          pass: 'yourpassword'
+          pass: obj.pass
         }
       });
       
@@ -376,6 +491,7 @@ function sendMail(to, subject, text){
           console.log('Email sent: ' + info.response);
         }
       });
+
 }
 
 async function scrapeInfiniteScrollItems(page, extractItems, itemTargetCount, filters, scrollStep = 200, scrollDelay = 0, maxItterations = 1700) {
@@ -385,6 +501,7 @@ async function scrapeInfiniteScrollItems(page, extractItems, itemTargetCount, fi
     var itemsStillNeedToLoad = true;
 
     var numberOfItterations = 0;
+    var lastLog;
 
     while ((items.length < itemTargetCount || itemsStillNeedToLoad) && numberOfItterations < maxItterations) {
 
@@ -444,8 +561,11 @@ async function scrapeInfiniteScrollItems(page, extractItems, itemTargetCount, fi
 
         await page.waitFor(scrollDelay);
 
-        if(items.length % 10 == 0)
+        if(items.length % 10 == 0 && lastLog != items.length)
+        {
+            lastLog = items.length;
             console.log(items.length);
+        } 
 
         if(items.length > 0)
             itemsStillNeedToLoad = items[items.length - 1].posY > scrollDistance;
@@ -599,3 +719,5 @@ async function cleanup()
     browser = await puppeteer.connect({browserWSEndpoint});   
     browser.close();
 }
+
+// makeSearchesCron.start();

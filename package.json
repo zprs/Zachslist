@@ -10,6 +10,7 @@
   "author": "Zachary Richards",
   "license": "ISC",
   "dependencies": {
+    "cron": "^1.8.2",
     "express": "^4.17.1",
     "fs": "0.0.1-security",
     "node-cleanup": "^2.1.2",
