@@ -21,9 +21,9 @@ var server = app.listen(port, "0.0.0.0");
 var io = require('socket.io')(server);
 console.log(`App started. Running on port ${ port }`);
 
-// var makeSearchesCron = new CronJob('* * * * *', function() {
-//     makeSearches();
-// }, null, true, 'America/Los_Angeles');
+var makeSearchesCron = new CronJob('*/60 * * * *', function() {
+    makeSearches();
+}, null, true, 'America/Los_Angeles');
   
 
 function makeSearches()
@@ -111,15 +111,16 @@ function sendSpecialUpdate(email, specials)
 
     var text = "There are " + specials.length + " new listings that include one of your special search terms: ";
 
-    for (let i = 0; i < specials.length; i++) {
-        const special = specials[i];
+    // for (let i = 0; i < specials.length; i++) {
+    //     const special = specials[i];
 
-        text += special.description + ", " + special.price;
-    }
+    //     text += special.description + ", " + special.price;
+    // }
 
+    html = formatSpecials(specials);
     subject = specials.length + " new special listing(s)";
 
-    sendMail(email, subject, text);
+    sendMail(email, subject, text, html);
 }
 
 
@@ -461,9 +462,8 @@ function facebookMPLinkGen(minPrice, maxPrice, radius, positiveTerms)
 }
 
 ///Mailer
-function sendMail(to, subject, text){
-
-    
+function sendMail(to, subject, text, html){
+     
     var obj = JSON.parse(fs.readFileSync('emailCredentials.json', 'utf8'));
 
     var senderEmail = obj.email;
@@ -480,8 +480,8 @@ function sendMail(to, subject, text){
         from: senderEmail,
         to: to,
         subject: subject,
-        text: text
-        //html: html
+        text: text,
+        html: html
       };
       
       transporter.sendMail(mailOptions, function(error, info){
@@ -494,7 +494,7 @@ function sendMail(to, subject, text){
 
 }
 
-async function scrapeInfiniteScrollItems(page, extractItems, itemTargetCount, filters, scrollStep = 200, scrollDelay = 0, maxItterations = 1700) {
+async function scrapeInfiniteScrollItems(page, extractItems, itemTargetCount, filters, scrollStep = 200, scrollDelay = 10, maxItterations = 1000) {
     let items = [];
 
     var scrollDistance = 0;
@@ -720,4 +720,34 @@ async function cleanup()
     browser.close();
 }
 
-// makeSearchesCron.start();
+makeSearchesCron.start();
+
+
+
+
+///Temporary scrape formatting:
+
+function formatSpecials(data)
+{
+    var html = '<!DOCTYPE html><html><body>';
+
+    for(var i = 0; i < data.length; i++)
+    {
+        var entry = data[i];
+        html += '<a class="listingEntry" href="' + entry.link + '" target="_blank">';
+        html += '<div class="listingPrice">' + entry.price + '</div>';
+        
+        if(entry.imageSrc != "")
+            html += '<img src="' + entry.imageSrc + '" class="listingImage">';
+
+       
+        html += '<p class="listingDescription">' + entry.description + '</p>';
+
+        html += '</a>'
+        
+    }
+
+    html += '</body>';
+
+    return html;
+}
