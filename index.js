@@ -1,15 +1,10 @@
 const fs = require("fs");
-
-var Xvfb = require('xvfb');
-var xvfb = new Xvfb();
-xvfb.startSync();
+var path = require('path');
 
 const puppeteer = require('puppeteer-core');
 const chromePath = setChromePath();
 var browserWSEndpoint = null;
 spawnPuppeteerBrowser();
-// const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-// puppeteer.use(StealthPlugin())
 
 var nodeCleanup = require('node-cleanup');
 const nodemailer = require('nodemailer');
@@ -136,6 +131,8 @@ io.sockets.on('connection', (socket) => {
         }
 
         scrapeWebsites(data, socket.id);
+
+        
     });
 
     socket.on('viewSavedSearches', function(data) {
@@ -158,25 +155,24 @@ async function spawnPuppeteerBrowser()
     const args = [
         '--disable-gpu',
         '--no-sandbox',
-        '--user-data-dir=./tmp/session',
-        '--disable-setuid-sandbox',
         '--mute-audio',
         '--disable-infobars',
         '--window-position=0,0',
         '--ignore-certifcate-errors',
         '--ignore-certifcate-errors-spki-list',
-        '--disable-dev-shm-usage',
         '--proxy-server="direct://"',
         '--proxy-bypass-list=*',
+        '--no-zygote',
         '--user-agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3312.0 Safari/537.36"'
     ];
 
     const options = {
         executablePath: chromePath,
         args: args,
-        headless: false,
+        headless: true,
         devtools: false,
-        ignoreHTTPSErrors: true
+        ignoreHTTPSErrors: true,
+        userDataDir: path.resolve('tmp')
     };
 
     let browser = await puppeteer.launch(options);
@@ -190,21 +186,24 @@ async function scrapeWebsites(data, socketID)
 {
     console.log("scrape request recieved");
 
+    const start = Date.now();
+
     try
     {
         browser = await puppeteer.connect({browserWSEndpoint});   
-        console.log("browser connected");
+        console.log("Browser connected");
         // const preloadFile = fs.readFileSync('./preload.js', 'utf8');
     
         let page = await browser.newPage();
         await page.setViewport({ width: 400, height: 500 });
         await page.setRequestInterception(true);
-    
-        page.on('request', (request) => {
-            if (['stylesheet', 'font'].indexOf(request.resourceType()) !== -1) {
-                request.abort();
-            } else {
-                request.continue();
+
+        page.on('request', (req) => {
+            if(req.resourceType() == 'stylesheet' || req.resourceType() == 'font' || req.resourceType() == 'image'){
+                req.abort();
+            }
+            else {
+                req.continue();
             }
         });
     
@@ -213,32 +212,32 @@ async function scrapeWebsites(data, socketID)
 
         //Craigslist Scrape -----------------
         let craigslistURL = craigslistLinkGen(data.minPrice, data.maxPrice, data.zip, data.radius, data.positiveTerms, data.negitiveTerms);
-        console.log("goto CL");
-        await page.goto(craigslistURL, { waitUntil: 'networkidle0', timeout: 0});
+        console.log("Go to CL");
+        await page.goto(craigslistURL, { waitUntil: 'networkidle0', timeout: 15000});
         let CLScrapeData = await page.evaluate(extractCLItems);
     
-        console.log("finised CL Scrape");
+        console.log("Finised CL scrape");
     
         //Offer Up Scrape -------------------
         let offerUpURL = offerUpLinkGen(data.minPrice, data.maxPrice, data.radius, data.positiveTerms);
-        await page.goto(offerUpURL, { waitUntil: 'networkidle0', timeout: 0 });
+        await page.goto(offerUpURL, { waitUntil: 'networkidle0', timeout: 15000});
         
         let OUScrapeData = await scrapeInfiniteScrollItems(page, extractOUItems, 50, data);
     
-        console.log("finised OU Scrape");
+        console.log("Finised OU scrape");
     
         //FBMP Scrape -------------------
         let fbmpURL = facebookMPLinkGen(data.minPrice, data.maxPrice, data.radius, data.positiveTerms);
-        await page.goto(fbmpURL, { waitUntil: 'networkidle0', timeout: 0 });
+        await page.goto(fbmpURL, { waitUntil: 'networkidle0', timeout: 15000});
     
         let FBMPScrapeData = await scrapeInfiniteScrollItems(page, extractFBMPItems, 50, data);
         
-        console.log("finised FBMP Scrape");
+        console.log("Finised FBMP scrape");
     
         var totalNumberScraped = CLScrapeData.length + OUScrapeData.length + FBMPScrapeData.length;
         var combinedData = [];
     
-        console.log("FinishedScraping");
+        console.log("Finished scraping");
     
         for (let i = 0; i < totalNumberScraped; i++) {
             if(i < CLScrapeData.length)
@@ -249,8 +248,7 @@ async function scrapeWebsites(data, socketID)
                 combinedData.push(FBMPScrapeData[i]);
         }
     
-        console.log("Finised conbiningScrape");
-
+        console.log("Finised combining scrapes");
         io.to(socketID).emit("scrape", {scrapeData: combinedData, urls: [craigslistURL, offerUpURL, fbmpURL], filters: data});
         await page.close();
         await browser.disconnect();
@@ -259,6 +257,8 @@ async function scrapeWebsites(data, socketID)
     {
         console.log("Caught webscraping error:  " + error);
     }
+
+    console.log('Took', Date.now() - start, 'ms');
 }
 
 function craigslistLinkGen(minPrice, maxPrice, zip, radius, positiveTerms, negitiveTerms)
@@ -599,5 +599,4 @@ async function cleanup()
 {
     browser = await puppeteer.connect({browserWSEndpoint});   
     browser.close();
-    xvfb.stopSync();
 }
